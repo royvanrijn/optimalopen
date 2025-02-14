@@ -135,15 +135,18 @@ public class OptimalOpenHashMap<K, V> implements Map<K, V> {
     /**
      * Rehashes the entire table to remove tombstones.
      */
-    @SuppressWarnings("unchecked")
     private void cleanup() {
-        Entry<K, V>[] oldTable = table;
-        int mask = capacity - 1;
-        Entry<K, V>[] newTable = (Entry<K, V>[]) new Entry[capacity];
+        rehash(capacity);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void rehash(int newCapacity) {
+        int mask = newCapacity - 1;
+        Entry<K, V>[] newTable = (Entry<K, V>[]) new Entry[newCapacity];
         int newSize = 0;
-        for (Entry<K, V> e : oldTable) {
+        for (Entry<K, V> e : table) {
             if (e != null && e != TOMBSTONE) {
-                for (int i = 0; i < capacity; i++) {
+                for (int i = 0; i < newCapacity; i++) {
                     int idx = probeIndex(e.hash, i, mask);
                     if (newTable[idx] == null) {
                         newTable[idx] = e;
@@ -156,6 +159,7 @@ public class OptimalOpenHashMap<K, V> implements Map<K, V> {
         table = newTable;
         size = newSize;
         tombstones = 0;
+        capacity = newCapacity;
     }
 
     // Linear probing: (baseHash + attempt) & mask, where mask = capacity - 1.
@@ -170,7 +174,6 @@ public class OptimalOpenHashMap<K, V> implements Map<K, V> {
         return h & 0x7fffffff;
     }
 
-    @SuppressWarnings("unchecked")
     private void resize() {
         if (capacity >= MAXIMUM_CAPACITY) {
             throw new IllegalStateException("Cannot resize: maximum capacity reached (" + MAXIMUM_CAPACITY + ")");
@@ -178,25 +181,7 @@ public class OptimalOpenHashMap<K, V> implements Map<K, V> {
         int newCapacity = capacity * 2;
         if (newCapacity > MAXIMUM_CAPACITY)
             newCapacity = MAXIMUM_CAPACITY;
-        Entry<K, V>[] oldTable = table;
-        table = (Entry<K, V>[]) new Entry[newCapacity];
-        capacity = newCapacity;
-        int mask = capacity - 1;
-        int newSize = 0;
-        tombstones = 0;
-        for (Entry<K, V> e : oldTable) {
-            if (e != null && e != TOMBSTONE) {
-                for (int i = 0; i < capacity; i++) {
-                    int idx = (e.hash + i) & mask;
-                    if (table[idx] == null) {
-                        table[idx] = e;
-                        newSize++;
-                        break;
-                    }
-                }
-            }
-        }
-        size = newSize;
+        rehash(newCapacity);
     }
 
     @Override
